@@ -1,0 +1,19 @@
+id,particle,spin,charge,mass
+1,up quark,0.5,0.6667,2.2
+2,down quark,0.5,-0.333,4.6
+3,charm quark,0.5,0.6667,1280
+4,strange quark,0.5,-0.333,96
+5,top quark,0.5,0.6667,173100
+6,bottom quark,0.5,-0.333,4180
+7,electron,0.5,-1,0.511
+8,electron neutrino,0.5,0,0.0000022
+9,muon,0.5,-1,105.7
+10,muon neutrino,0.5,0,0.17
+11,tau,0.5,-1,1776.86
+12,tau neutrino,0.5,0,15.5
+13,photon,1,0,0
+14,W boson,1,-1,80.385
+15,Z boson,1,0,91.1875
+16,gluon,1,0,0
+17,Higgs boson,0,0,125.00
+18,graviton,2,0,0
