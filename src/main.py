@@ -16,6 +16,7 @@ from myutils import info, create_readme
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from itertools import combinations
+import igraph
 
 ##########################################################
 def interiority(dataorig):
@@ -27,7 +28,7 @@ def interiority(dataorig):
     den = np.min(abssum)
     num = np.sum(np.min(data, axis=0))
     return num / den
-    
+
 ##########################################################
 def jaccard(dataorig, a):
     """Calculate the interiority index of the two rows. @vs has 2rows and n-columns, where
@@ -48,8 +49,34 @@ def jaccard(dataorig, a):
 def coincidence(data, a):
     inter = interiority(data)
     jac = jaccard(data, a)
-    print(inter, jac)
+    # print(inter, jac)
     return inter * jac
+
+##########################################################
+def get_coincidence_graph(dataorig, alpha, ethresh, standardize, outpath):
+    """Get graph of individual elements"""
+
+    n, m = dataorig.shape
+    if standardize:
+        data = StandardScaler().fit_transform(dataorig)
+    else:
+        data = dataorig
+    combs = list(combinations(range(n), 2))
+
+    adj = np.zeros((n, n), dtype=float)
+
+    ws = []
+    for comb in combs:
+        data2 = data[list(comb)]
+        c = coincidence(data2, alpha)
+        adj[comb[0], comb[1]] = adj[comb[1], comb[0]] = c
+        ws.append(c)
+
+    g = igraph.Graph.Weighted_Adjacency((adj).tolist())
+    #TODO: use ethresh
+
+    igraph.plot(g, outpath)
+    return g
 
 ##########################################################
 def main(outdir):
@@ -57,29 +84,29 @@ def main(outdir):
     info(inspect.stack()[0][3] + '()')
     csvpath = 'data/particles.csv'
     feats = ['spin', 'charge', 'mass']
-    # feats = ['spin', 'charge']
+    alpha = .6
+    edgethresh = .35
+
     df = pd.read_csv(csvpath)
-    n, m = len(df), len(feats)
-    a = .6
-    normalized = StandardScaler().fit_transform(df[feats])
+    data = df[feats].to_numpy()
+    n, m = data.shape
 
-    combs = list(combinations(range(n), 2))
-    
-    import igraph
-    g = igraph.Graph(n=18)
+    labels = []
+    datameta = []
+    for mm in range(1, m +1):
+        combs = list(combinations(range(m), mm))
+        for comb in combs:
+            combids = list(comb)
+            suff = '_'.join([str(ind) for ind in combids])
+            plotpath = pjoin(outdir, suff + '.png')
+            g = get_coincidence_graph(data[:, combids], alpha, edgethresh, True, plotpath)
+            datameta.append(g.es['weight'])
+            labels.append(suff)
 
-    acc = 0
-    for comb in combs:
-        data = normalized[list(comb)]
-        c = coincidence(data, a)
-        if c > .35:
-            print(comb, c)
-            acc += 1
-            g.add_edge(comb[0], comb[1])
-    igraph.plot(g, '/tmp/out.png')
+    datameta = np.array(datameta)
+    plotpath = pjoin(outdir, 'meta.png')
+    g = get_coincidence_graph(datameta, alpha, edgethresh, False, plotpath)
 
-    print(acc)
-    
 ##########################################################
 if __name__ == "__main__":
     info(datetime.date.today())
