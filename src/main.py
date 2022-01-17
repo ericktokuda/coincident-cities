@@ -53,7 +53,17 @@ def coincidence(data, a):
     return inter * jac
 
 ##########################################################
-def get_coincidence_graph(dataorig, alpha, ethresh, standardize, outpath):
+def plot_weighted_graph(adjorig, ethresh, outpath):
+    adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
+    adj[adj < ethresh] = 0
+    g = igraph.Graph(n=len(adjorig), directed=False)
+    xx, yy = np.where(adj != 0)
+    for x, y in zip(xx, yy):
+        g.add_edge(x, y, w=adj[x, y])
+    igraph.plot(g, outpath)
+
+##########################################################
+def get_coincidence_graph(dataorig, alpha, standardize):
     """Get graph of individual elements"""
 
     n, m = dataorig.shape
@@ -65,18 +75,12 @@ def get_coincidence_graph(dataorig, alpha, ethresh, standardize, outpath):
 
     adj = np.zeros((n, n), dtype=float)
 
-    ws = []
     for comb in combs:
         data2 = data[list(comb)]
         c = coincidence(data2, alpha)
         adj[comb[0], comb[1]] = adj[comb[1], comb[0]] = c
-        ws.append(c)
 
-    g = igraph.Graph.Weighted_Adjacency((adj).tolist())
-    #TODO: use ethresh
-
-    igraph.plot(g, outpath)
-    return g
+    return adj
 
 ##########################################################
 def main(outdir):
@@ -84,7 +88,7 @@ def main(outdir):
     info(inspect.stack()[0][3] + '()')
     csvpath = 'data/particles.csv'
     feats = ['spin', 'charge', 'mass']
-    alpha = .6
+    alpha = .4
     edgethresh = .35
 
     df = pd.read_csv(csvpath)
@@ -98,14 +102,16 @@ def main(outdir):
         for comb in combs:
             combids = list(comb)
             suff = '_'.join([str(ind) for ind in combids])
+            adj = get_coincidence_graph(data[:, combids], alpha, True)
             plotpath = pjoin(outdir, suff + '.png')
-            g = get_coincidence_graph(data[:, combids], alpha, edgethresh, True, plotpath)
-            datameta.append(g.es['weight'])
+            plot_weighted_graph(adj, edgethresh, plotpath)
+            datameta.append(adj.flatten())
             labels.append(suff)
 
     datameta = np.array(datameta)
+    adj = get_coincidence_graph(datameta, alpha, False)
     plotpath = pjoin(outdir, 'meta.png')
-    g = get_coincidence_graph(datameta, alpha, edgethresh, False, plotpath)
+    plot_weighted_graph(adj, edgethresh, plotpath)
 
 ##########################################################
 if __name__ == "__main__":
