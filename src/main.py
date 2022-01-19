@@ -52,6 +52,27 @@ def coincidence(data, a):
 ##########################################################
 def plot_weighted_graph(adjorig, labels, ethresh, outpath):
     adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
+    # print(np.min(adj))
+    adj[adj < ethresh] = 0
+    g = igraph.Graph(n=len(adjorig), directed=False)
+    xx, yy = np.where(adj != 0)
+    ewidths = []
+    for x, y in zip(xx, yy):
+        g.add_edge(x, y, w=adj[x, y])
+        ewidths.append(adj[x, y])
+    ewidths = np.array(ewidths)
+    wmax = 4 # max edge widths
+    erange = np.max(ewidths) - np.min(ewidths)
+
+    ewidths = np.ones(len(ewidths))
+
+    igraph.plot(g, outpath, vertex_frame_width=0, vertex_label=labels, edge_width=ewidths,
+                                            vertex_color='yellow')
+
+##########################################################
+def plot_weighted_graph2(adjorig, labels, ethresh, outpath):
+    adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
+    # print(np.min(adj))
     adj[adj < ethresh] = 0
     g = igraph.Graph(n=len(adjorig), directed=False)
     xx, yy = np.where(adj != 0)
@@ -92,12 +113,34 @@ def get_coincidence_graph(dataorig, alpha, standardize):
     return adj
 
 ##########################################################
+def get_pearson_graph(dataorig, alpha, standardize):
+    """Get graph of individual elements"""
+
+    n, m = dataorig.shape
+    if standardize:
+        data = StandardScaler().fit_transform(dataorig)
+    else:
+        data = dataorig
+    combs = list(combinations(range(n), 2))
+
+    adj = np.zeros((n, n), dtype=float)
+
+    import scipy
+    for comb in combs:
+        data2 = data[list(comb)]
+        # c = coincidence(data2, alpha)
+        c, _ = scipy.stats.pearsonr(data2[0, :], data2[1, :])
+        adj[comb[0], comb[1]] = adj[comb[1], comb[0]] = c
+
+    return adj
+
+##########################################################
 def main(outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
     csvpath = 'data/particles.csv'
     feats = ['spin', 'charge', 'mass']
-    alpha = .4
+    alpha = .6
     edgethresh = .35
 
     df = pd.read_csv(csvpath)
@@ -111,17 +154,27 @@ def main(outdir):
         combs = list(combinations(range(m), mm))
         for comb in combs:
             combids = list(comb)
-            suff = '_'.join([str(ind) for ind in combids])
+            # suff = '_'.join([str(ind) for ind in combids])
+            suff = '_'.join([str(ind+1) for ind in combids])
+            print(suff)
             adj = get_coincidence_graph(data[:, combids], alpha, True)
             plotpath = pjoin(outdir, suff + '.png')
-            vstr = [str(ii) for ii in range(n)]
+            # vstr = [str(ii) for ii in range(n)]
+            vstr = [str(ii+1) for ii in range(n)]
             plot_weighted_graph(adj, vstr, edgethresh, plotpath)
+
             datameta.append(adj.flatten())
             labels.append(suff)
 
     datameta = np.array(datameta)
+    # datameta[datameta < edgethresh] = 0
+    # datameta[datameta != 0] = 1
     adj = get_coincidence_graph(datameta, alpha, False)
-    plot_weighted_graph(adj, labels, edgethresh, pjoin(outdir, 'meta.png'))
+    print(datameta[0, : 10])
+    print(labels)
+    # adj = get_pearson_graph(datameta, alpha, False)
+    plot_weighted_graph2(adj, labels, 0, pjoin(outdir, 'meta.png'))
+
 
 ##########################################################
 if __name__ == "__main__":
