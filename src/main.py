@@ -64,26 +64,6 @@ def plot_weighted_graph(adjorig, labels, ethresh, outpath):
     wmax = 4 # max edge widths
     erange = np.max(ewidths) - np.min(ewidths)
 
-    ewidths = np.ones(len(ewidths))
-
-    igraph.plot(g, outpath, vertex_frame_width=0, vertex_label=labels, edge_width=ewidths,
-                                            vertex_color='yellow')
-
-##########################################################
-def plot_weighted_graph2(adjorig, labels, ethresh, outpath):
-    adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
-    # print(np.min(adj))
-    adj[adj < ethresh] = 0
-    g = igraph.Graph(n=len(adjorig), directed=False)
-    xx, yy = np.where(adj != 0)
-    ewidths = []
-    for x, y in zip(xx, yy):
-        g.add_edge(x, y, w=adj[x, y])
-        ewidths.append(adj[x, y])
-    ewidths = np.array(ewidths)
-    wmax = 4 # max edge widths
-    erange = np.max(ewidths) - np.min(ewidths)
-
     if erange == 0: # All edges have the same weight
         ewidths = np.ones(len(ewidths))
     else:
@@ -135,59 +115,68 @@ def get_pearson_graph(dataorig, alpha, standardize):
     return adj
 
 ##########################################################
-def main(outdir):
+def main(csvpath, idcol, featcols, outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
-    csvpath = 'data/particles.csv'
-    feats = ['spin', 'charge', 'mass']
+
     alpha = .6
-    edgethresh = .35
+    edgethresh1 = .2
+    edgethresh2 = .5
 
     df = pd.read_csv(csvpath)
-    data = df[feats].to_numpy()
+
+    if idcol == None:
+        rowids = [str(i) for i in range(len(df))]
+    else:
+        rowids = df[idcol]
+
+    if featcols == None:
+        data = df.to_numpy()
+        feats = df.columns
+    else:
+        feats = featcols.split(',')
+        data = df[feats].to_numpy()
+
     n, m = data.shape
 
     datameta = [] # Each row will correspond to a flattened adj matrix
     labels = [] # Label of each row of datameta
 
     for mm in range(1, m +1): # Size of the subset varies from 1 to m
+        # combs = [list(range(12))]
         combs = list(combinations(range(m), mm))
         for comb in combs:
             combids = list(comb)
-            # suff = '_'.join([str(ind) for ind in combids])
             suff = '_'.join([str(ind+1) for ind in combids])
-            print(suff)
+            info('Combination ', suff)
+            # suff = '_'.join([feats[ind] for ind in combids])
             adj = get_coincidence_graph(data[:, combids], alpha, True)
             plotpath = pjoin(outdir, suff + '.png')
-            # vstr = [str(ii) for ii in range(n)]
-            vstr = [str(ii+1) for ii in range(n)]
-            plot_weighted_graph(adj, vstr, edgethresh, plotpath)
+            plot_weighted_graph(adj, rowids, edgethresh1, plotpath)
 
             datameta.append(adj.flatten())
             labels.append(suff)
 
     datameta = np.array(datameta)
-    # datameta[datameta < edgethresh] = 0
-    # datameta[datameta != 0] = 1
     adj = get_coincidence_graph(datameta, alpha, False)
-    print(datameta[0, : 10])
-    print(labels)
     # adj = get_pearson_graph(datameta, alpha, False)
-    plot_weighted_graph2(adj, labels, 0, pjoin(outdir, 'meta.png'))
-
+    plot_weighted_graph(adj, labels, edgethresh2, pjoin(outdir, 'meta.png'))
 
 ##########################################################
 if __name__ == "__main__":
     info(datetime.date.today())
     t0 = time.time()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--csvpath', default='data/data.csv', help='Input data')
+    parser.add_argument('--idcol', default=None, help='Name of the label columns')
+    parser.add_argument('--featcols', default=None, help='Subset of feats to consider, separated by comma')
     parser.add_argument('--outdir', default='/tmp/out/', help='Output directory')
     args = parser.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
     readmepath = create_readme(sys.argv, args.outdir)
 
-    main(args.outdir)
+    main(args.csvpath, args.idcol, args.featcols, args.outdir)
 
     info('Elapsed time:{:.02f}s'.format(time.time()-t0))
     info('Output generated in {}'.format(args.outdir))
