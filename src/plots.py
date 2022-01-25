@@ -17,12 +17,9 @@ from myutils import info, create_readme
 from myutils.transform import pca, get_pc_contribution
 
 ##########################################################
-def main(csvpath, outdir):
-    """Short description"""
+def plot_pca(df, outdir):
+    """Short description """
     info(inspect.stack()[0][3] + '()')
-
-    df = pd.read_csv(csvpath)
-
     cols = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd', 'eangstd',
     'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
 
@@ -56,8 +53,51 @@ def main(csvpath, outdir):
     plt.tight_layout()
     # plt.legend()
 
-    outpath = '/tmp/pca.png'
+    outpath = pjoin(outdir, 'pca.png')
     plt.savefig(outpath)
+
+##########################################################
+def plot_histograms(outdir):
+    """Plot histograms"""
+    info(inspect.stack()[0][3] + '()')
+
+    n = 5
+    clusters = [
+        [[3,5], [1,3,5], [2,3,5], [3,4,5], [1,3,4,5], [1,2,3,5], [2,3,4,5], [1,2,3,4,5]],
+        [[1,3,4], [3,4], [1,2,3,4], [2,3,4], [1,2,3], [2,3], [1,3]],
+        [[5], [4, 5], [2, 4, 5], [1,4,5], [1,2,5], [2,5], [1,2,4,5], [1,5]],
+        [[1,2,4], [1,4], [1,2], [2,4], [4]]
+    ]
+
+    for clid, cluster in enumerate(clusters):
+        counter = np.zeros(n, dtype=float)
+        clsizes = []
+        for i, nodes in enumerate(cluster):
+            clsizes.append(len(nodes))
+            for node in nodes:
+                counter[node - 1] += 1
+
+        W = 640; H = 480
+
+        fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
+        ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
+        ax.set_xlabel('Network id')
+        ax.set_ylim(0, .45)
+        plt.tight_layout()
+
+        outpath = pjoin(outdir, 'hist{}.png'.format(clid))
+        plt.savefig(outpath)
+
+
+##########################################################
+def main(csvpath, outdir):
+    """Short description"""
+    info(inspect.stack()[0][3] + '()')
+
+    df = pd.read_csv(csvpath)
+    plot_pca(df, outdir)
+    plot_histograms(outdir)
+
 
 ##########################################################
 if __name__ == "__main__":
