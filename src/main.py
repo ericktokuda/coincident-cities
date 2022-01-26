@@ -51,7 +51,7 @@ def coincidence(data, a):
     return inter * jac
 
 ##########################################################
-def plot_weighted_graph(adjorig, labels, ethresh, outpath):
+def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
     adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
     # print(np.min(adj))
     adj[adj < ethresh] = 0
@@ -62,7 +62,7 @@ def plot_weighted_graph(adjorig, labels, ethresh, outpath):
         g.add_edge(x, y, w=adj[x, y])
         ewidths.append(adj[x, y])
     ewidths = np.array(ewidths)
-    wmax = 5 # max edge widths
+    wmax = 3 # max edge widths
     # print(ewidths.shape)
     erange = np.max(ewidths) - np.min(ewidths)
 
@@ -73,9 +73,11 @@ def plot_weighted_graph(adjorig, labels, ethresh, outpath):
 
     igraph.plot(g, outpath, vertex_frame_width=1,
                 vertex_frame_color='#dddddd', vertex_label=labels,
-                vertex_label_size=8, vertex_size=20, edge_color='#aaaaaa',
+                # vertex_label_size=16, vertex_size=50, edge_color='#aaaaaa',
+                vertex_label_size=12, vertex_size=30, edge_color='#aaaaaa',
                 edge_width=list(ewidths), vertex_color='#809fff', margin=50,
-                layout='fr',
+                # edge_width=list(ewidths), vertex_color='#e27564', margin=50,
+                layout=layout,
                 )
 
 ##########################################################
@@ -150,6 +152,9 @@ def main(csvpath, idcol, featcols, outdir):
     datameta = [] # Each row will correspond to a flattened adj matrix
     labels = [] # Label of each row of datameta
 
+    # rowlabels = [rowid.capitalize() for rowid in df.city]
+    rowlabels = [chr(i) for i in range(97, 97+n)]
+
     # m = 1
     for mm in range(1, m +1): # Size of the subset varies from 1 to m
         # combs = [list(range(12))]
@@ -160,10 +165,9 @@ def main(csvpath, idcol, featcols, outdir):
             info('Combination ', suff)
             # suff = '_'.join([feats[ind] for ind in combids])
             adj = get_coincidence_graph(data[:, combids], alpha, True)
+            np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
-            rowlabels = [rowid.capitalize() for rowid in rowids]
-            plot_weighted_graph(adj, rowlabels, edgethresh1, plotpath)
-
+            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
             datameta.append(adj.flatten())
             labels.append(suff)
 
@@ -172,11 +176,11 @@ def main(csvpath, idcol, featcols, outdir):
     vweights = np.sum(adj, axis=0)
     inds = np.argsort(np.sum(adj, axis=0))
     desc = list(reversed(inds))
-    info('"strongest" nodes: {}'.format(np.array(labels)[desc]))
+    info('"Strongest" nodes: {}'.format(np.array(labels)[desc]))
 
     np.savetxt(pjoin(outdir, 'adj.txt'), adj)
     # adj = get_pearson_graph(datameta, alpha, False)
-    # plot_weighted_graph(adj, labels, edgethresh2, pjoin(outdir, 'meta.pdf'))
+    plot_weighted_graph(adj, labels, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
 
     # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
     # plot_weighted_graph(adj, vweights, edgethresh2, pjoin(outdir, 'weights.pdf'))

@@ -30,18 +30,20 @@ def plot_pca(df, outdir):
     pcs, contribs, relcontribs = get_pc_contribution(evecs, evals)
     info('Contribs:', np.array(cols)[pcs], contribs, relcontribs)
 
-    W = 640; H = 480
+    W = 480; H = 360
     fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
     # ax.set_title('PCA components (pc1 and pc2)')
 
     cities = [ c.capitalize() for c in list(df.city)]
 
-    ax.scatter(tr[:, 0], tr[:, 1])
+    ax.scatter(tr[:, 0], tr[:, 1], c='#809fff')
     # for i in range(tr.shape[0]):
         # ax.scatter(tr[i, 0], tr[i, 1], label=cities[i])
 
+    citylabels = [chr(i) for i in range(97, 97 + 21)]
     for i in range(len(df2)):
-        ax.annotate(df.iloc[i].city.capitalize(), (tr[i, 0], tr[i, 1]))
+        # ax.annotate(df.iloc[i].city.capitalize(), (tr[i, 0], tr[i, 1]))
+        ax.annotate(citylabels[i], (tr[i, 0], tr[i, 1]))
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
     # ax.set_xlabel('PCA1 ({} ({}%)'.format(cols[pcs[0]], int(contribs[0] * 100)))
@@ -73,7 +75,7 @@ def plot_heatmap(df, outdir):
 
     corrs = df2.corr()
 
-    mask = np.triu(np.ones_like(corrs, dtype=bool))
+    mask = np.tril(np.ones_like(corrs, dtype=bool))
     import seaborn as sns
     sns.heatmap(corrs, mask=mask)
     plt.tight_layout()
@@ -102,7 +104,7 @@ def plot_histograms(outdir):
             for node in nodes:
                 counter[node - 1] += 1
 
-        W = 640; H = 480
+        W = 320; H = 240
 
         fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
         # ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
