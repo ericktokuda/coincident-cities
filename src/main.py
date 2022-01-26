@@ -169,8 +169,17 @@ def main(csvpath, idcol, featcols, outdir):
 
     datameta = np.array(datameta)
     adj = get_coincidence_graph(datameta, alpha, False)
+    vweights = np.sum(adj, axis=0)
+    inds = np.argsort(np.sum(adj, axis=0))
+    desc = list(reversed(inds))
+    info('"strongest" nodes: {}'.format(np.array(labels)[desc]))
+
+    np.savetxt(pjoin(outdir, 'adj.txt'), adj)
     # adj = get_pearson_graph(datameta, alpha, False)
-    plot_weighted_graph(adj, labels, edgethresh2, pjoin(outdir, 'meta.pdf'))
+    # plot_weighted_graph(adj, labels, edgethresh2, pjoin(outdir, 'meta.pdf'))
+
+    # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
+    # plot_weighted_graph(adj, vweights, edgethresh2, pjoin(outdir, 'weights.pdf'))
 
 ##########################################################
 if __name__ == "__main__":

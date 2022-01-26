@@ -12,6 +12,7 @@ import sys
 import numpy as np
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+plt.style.use('ggplot')
 import pandas as pd
 from myutils import info, create_readme
 from myutils.transform import pca, get_pc_contribution
@@ -26,10 +27,10 @@ def plot_pca(df, outdir):
     df2 = df[cols].copy(deep=True)
     data = df2.to_numpy()
     tr, evecs, evals = pca(data, normalize=True)
-    pcs, contribs = get_pc_contribution(evecs)
+    pcs, contribs, relcontribs = get_pc_contribution(evecs, evals)
+    info('Contribs:', np.array(cols)[pcs], contribs, relcontribs)
 
     W = 640; H = 480
-
     fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
     # ax.set_title('PCA components (pc1 and pc2)')
 
@@ -40,20 +41,20 @@ def plot_pca(df, outdir):
         # ax.scatter(tr[i, 0], tr[i, 1], label=cities[i])
 
     for i in range(len(df2)):
-        ax.annotate(df.iloc[i].city, (tr[i, 0], tr[i, 1]))
+        ax.annotate(df.iloc[i].city.capitalize(), (tr[i, 0], tr[i, 1]))
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
     # ax.set_xlabel('PCA1 ({} ({}%)'.format(cols[pcs[0]], int(contribs[0] * 100)))
     # ax.set_ylabel('PCA2 {}: ({}%)'.format(cols[pcs[1]], int(contribs[1] * 100)))
-    ax.set_xlabel('PCA1')
-    ax.set_ylabel('PCA2')
+    ax.set_xlabel('PC 1')
+    ax.set_ylabel('PC 2')
     # ax.set_xlim(-.2, +.65)
     # ax.set_ylim(-xylim, +xylim)
     # plt.legend(bbox_to_anchor=(1.05, 1))
     plt.tight_layout()
     # plt.legend()
 
-    outpath = pjoin(outdir, 'pca.png')
+    outpath = pjoin(outdir, 'pca.pdf')
     plt.savefig(outpath)
 
 ##########################################################
@@ -80,14 +81,14 @@ def plot_histograms(outdir):
         W = 640; H = 480
 
         fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
-        ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
-        ax.set_xlabel('Network id')
-        ax.set_ylim(0, .45)
+        # ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
+        ax.bar(range(1, n+1), np.array(counter))
+        ax.set_xlabel('Feature id')
+        ax.set_ylim(0, 9)
         plt.tight_layout()
 
-        outpath = pjoin(outdir, 'hist{}.png'.format(clid))
+        outpath = pjoin(outdir, 'meta_hist{}.pdf'.format(clid))
         plt.savefig(outpath)
-
 
 ##########################################################
 def main(csvpath, outdir):
@@ -97,7 +98,6 @@ def main(csvpath, outdir):
     df = pd.read_csv(csvpath)
     plot_pca(df, outdir)
     plot_histograms(outdir)
-
 
 ##########################################################
 if __name__ == "__main__":
