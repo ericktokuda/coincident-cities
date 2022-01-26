@@ -57,6 +57,30 @@ def plot_pca(df, outdir):
     outpath = pjoin(outdir, 'pca.pdf')
     plt.savefig(outpath)
 
+
+##########################################################
+def plot_heatmap(df, outdir):
+    """Plot heatmap"""
+    info(inspect.stack()[0][3] + '()')
+    cols = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd', 'eangstd',
+    'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
+
+    df2 = df[cols].copy(deep=True)
+    data = df2.to_numpy()
+
+    W = 640; H = 480
+    fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
+
+    corrs = df2.corr()
+
+    mask = np.triu(np.ones_like(corrs, dtype=bool))
+    import seaborn as sns
+    sns.heatmap(corrs, mask=mask)
+    plt.tight_layout()
+
+    outpath = pjoin(outdir, 'heatmap.pdf')
+    plt.savefig(outpath)
+
 ##########################################################
 def plot_histograms(outdir):
     """Plot histograms"""
@@ -98,6 +122,7 @@ def main(csvpath, outdir):
     df = pd.read_csv(csvpath)
     plot_pca(df, outdir)
     plot_histograms(outdir)
+    plot_heatmap(df, outdir)
 
 ##########################################################
 if __name__ == "__main__":
