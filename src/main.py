@@ -123,6 +123,25 @@ def get_pearson_graph(dataorig, alpha, standardize):
     return adj
 
 ##########################################################
+def plot_heatmaps(adjdir, outdir):
+
+    os.makedirs(outdir, exist_ok=True)
+    labels = [chr(i) for i in range(97, 97 + 21)]
+    for f in sorted(os.listdir(adjdir)):
+        if not f.endswith('.txt'): continue
+        if 'README' in  f: continue
+        info(f)
+        adj = np.loadtxt(pjoin(adjdir, f))
+        import seaborn as sns
+        fig, ax = plt.subplots()
+        mask = np.triu(np.ones_like(adj, dtype=bool))
+        sns.heatmap(adj, mask=mask, ax=ax, vmin=-1, vmax=+1, xticklabels=labels,
+                    yticklabels=labels)
+        plt.tight_layout()
+        plt.savefig(pjoin(outdir, f.replace('.txt', '.pdf')))
+        plt.close()
+
+##########################################################
 def main(csvpath, idcol, featcols, outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
@@ -184,6 +203,8 @@ def main(csvpath, idcol, featcols, outdir):
 
     # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
     # plot_weighted_graph(adj, vweights, edgethresh2, pjoin(outdir, 'weights.pdf'))
+
+    plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
 
 ##########################################################
 if __name__ == "__main__":

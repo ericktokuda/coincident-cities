@@ -12,7 +12,7 @@ import sys
 import numpy as np
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.style.use('ggplot')
+# plt.style.use('ggplot')
 import pandas as pd
 from myutils import info, create_readme
 from myutils.transform import pca, get_pc_contribution
@@ -30,15 +30,19 @@ def plot_pca(df, outdir):
     pcs, contribs, relcontribs = get_pc_contribution(evecs, evals)
     info('Contribs:', np.array(cols)[pcs], contribs, relcontribs)
 
-    W = 480; H = 360
+    W = 640; H = 480
     fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
     # ax.set_title('PCA components (pc1 and pc2)')
 
     cities = [ c.capitalize() for c in list(df.city)]
 
-    ax.scatter(tr[:, 0], tr[:, 1], c='#809fff')
+    ax.scatter(tr[:, 0], tr[:, 1], s=180, c='#809fff', edgecolors='#dddddd')
     # for i in range(tr.shape[0]):
         # ax.scatter(tr[i, 0], tr[i, 1], label=cities[i])
+
+    for pos in ['right', 'top']:
+    # for pos in ['right', 'top', 'bottom', 'left']:
+        ax.spines[pos].set_visible(False)
 
     citylabels = [chr(i) for i in range(97, 97 + 21)]
     for i in range(len(df2)):
