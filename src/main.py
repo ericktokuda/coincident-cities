@@ -248,23 +248,13 @@ def plot_heatmaps(adjdir, outdir):
         plt.close()
 
 ##########################################################
-def compute_coincidence_rows(df, edgethresh1):
+def get_coincidence_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
     """Calculate coincidence index of the rows"""
-    if idcol == None:
-        rowids = [str(i) for i in range(len(df))]
-    else:
-        rowids = df[idcol]
-
-    if featcols == None:
-        data = df.to_numpy()
-        feats = df.columns
-    else:
-        feats = featcols.split(',')
-        data = df[feats].to_numpy()
-
     n, m = data.shape
 
-    datameta = [] # Each row will correspond to a flattened adj matrix
+    outdir = pjoin(outrootdir, 'rows05')
+    os.makedirs(outdir, exist_ok=True)
+    adjs = []
     labels = [] # Label of each row of datameta
 
     # rowlabels = [rowid.capitalize() for rowid in df.city]
@@ -283,9 +273,39 @@ def compute_coincidence_rows(df, edgethresh1):
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
             plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
-            datameta.append(adj.flatten())
+            adjs.append(adj)
             labels.append(suff)
 
+    return adjs, labels
+
+##########################################################
+def get_coincidence_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
+    """Calculate coincidence index of the rows"""
+    n, m = data.shape
+
+    outdir = pjoin(outrootdir, 'rows12')
+    os.makedirs(outdir, exist_ok=True)
+    adjs = []
+    labels = [] # Label of each row of datameta
+
+    rowlabels = [chr(i) for i in range(97, 97+n)]
+
+    m = 1
+    for mm in range(1, m +1): # Size of the subset varies from 1 to m
+        combs = [list(range(12))]
+        # combs = list(combinations(range(m), mm))
+        for comb in combs:
+            combids = list(comb)
+            suff = '_'.join([str(ind+1) for ind in combids])
+            info('Combination ', suff)
+            # suff = '_'.join([feats[ind] for ind in combids])
+            adj = get_coincidence_graph(data[:, combids], alpha, True)
+            np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
+            plotpath = pjoin(outdir, suff + '.pdf')
+            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
+            adjs.append(adj)
+            labels.append(suff)
+    return adjs, labels
 ##########################################################
 def main(csvpath, idcol, featcols, outdir):
     """Short description"""
@@ -293,60 +313,34 @@ def main(csvpath, idcol, featcols, outdir):
 
     seed = 6
     random.seed(seed); np.random.seed(seed)
-    alpha = .6
 
-    # compute_coincidence_rows()
     edgethresh1 = .2
     edgethresh2 = .5
+    alpha = .6
 
     df = pd.read_csv(csvpath)
+    rowids = df[idcol].tolist()
+    cols05 = ['degstd', 'transstd', 'vposstd2', 'lacun21', 'acc05std']
+    cols12 = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd',
+              'eangstd', 'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
+    feats05, feats12 = df[cols05].to_numpy(), df[cols12].to_numpy()
 
-    if idcol == None:
-        rowids = [str(i) for i in range(len(df))]
-    else:
-        rowids = df[idcol]
+    coirows12, _ = get_coincidence_of_rows12(feats12, rowids, alpha, edgethresh1, outdir)
 
-    if featcols == None:
-        data = df.to_numpy()
-        feats = df.columns
-    else:
-        feats = featcols.split(',')
-        data = df[feats].to_numpy()
+    coirows05, labels05 = get_coincidence_of_rows05(feats05, rowids, alpha,
+                                                    edgethresh1, outdir)
+    coirowsflat = np.array([matrx.flatten() for matrx in coirows05]) # Flatten matrices
 
-    n, m = data.shape
+    adj = get_coincidence_graph(coirowsflat, alpha, False)
 
-    datameta = [] # Each row will correspond to a flattened adj matrix
-    labels = [] # Label of each row of datameta
-
-    # rowlabels = [rowid.capitalize() for rowid in df.city]
-    rowlabels = [chr(i) for i in range(97, 97+n)]
-
-    # m = 1
-    for mm in range(1, m +1): # Size of the subset varies from 1 to m
-        # combs = [list(range(12))]
-        combs = list(combinations(range(m), mm))
-        for comb in combs:
-            combids = list(comb)
-            suff = '_'.join([str(ind+1) for ind in combids])
-            info('Combination ', suff)
-            # suff = '_'.join([feats[ind] for ind in combids])
-            adj = get_coincidence_graph(data[:, combids], alpha, True)
-            np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
-            plotpath = pjoin(outdir, suff + '.pdf')
-            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
-            datameta.append(adj.flatten())
-            labels.append(suff)
-
-    datameta = np.array(datameta)
-    adj = get_coincidence_graph(datameta, alpha, False)
     vweights = np.sum(adj, axis=0)
     inds = np.argsort(np.sum(adj, axis=0))
     desc = list(reversed(inds))
-    info('"Strongest" nodes: {}'.format(np.array(labels)[desc]))
+    info('"Strongest" nodes: {}'.format(np.array(labels05)[desc]))
 
     np.savetxt(pjoin(outdir, 'adj.txt'), adj)
     # adj = get_pearson_graph(datameta, alpha, False)
-    plot_weighted_graph(adj, labels, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
+    plot_weighted_graph(adj, labels05, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
 
     # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
     # plot_weighted_graph(adj, vweights, edgethresh2, pjoin(outdir, 'weights.pdf'))
