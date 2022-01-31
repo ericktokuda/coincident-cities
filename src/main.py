@@ -91,7 +91,7 @@ def plot_correlogram(df, outdir):
 
 ##########################################################
 def plot_histograms(outdir):
-    """Plot histograms"""
+    """Plot histograms based on the adhocly definedclusters"""
     info(inspect.stack()[0][3] + '()')
 
     n = 5
@@ -121,9 +121,6 @@ def plot_histograms(outdir):
 
         outpath = pjoin(outdir, 'meta_hist{}.pdf'.format(clid))
         plt.savefig(outpath)
-
-##########################################################
-##########################################################
 
 ##########################################################
 def interiority(dataorig):
@@ -187,7 +184,7 @@ def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
                 )
 
 ##########################################################
-def get_coincidence_graph(dataorig, alpha, standardize):
+def get_coincidx_graph(dataorig, alpha, standardize):
     """Get graph of individual elements"""
 
     n, m = dataorig.shape
@@ -248,7 +245,7 @@ def plot_heatmaps(adjdir, outdir):
         plt.close()
 
 ##########################################################
-def get_coincidence_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
+def get_coincidx_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
     """Calculate coincidence index of the rows"""
     n, m = data.shape
 
@@ -269,7 +266,7 @@ def get_coincidence_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
             suff = '_'.join([str(ind+1) for ind in combids])
             info('Combination ', suff)
             # suff = '_'.join([feats[ind] for ind in combids])
-            adj = get_coincidence_graph(data[:, combids], alpha, True)
+            adj = get_coincidx_graph(data[:, combids], alpha, True)
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
             plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
@@ -279,7 +276,7 @@ def get_coincidence_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
     return adjs, labels
 
 ##########################################################
-def get_coincidence_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
+def get_coincidx_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
     """Calculate coincidence index of the rows"""
     n, m = data.shape
 
@@ -299,19 +296,37 @@ def get_coincidence_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
             suff = '_'.join([str(ind+1) for ind in combids])
             info('Combination ', suff)
             # suff = '_'.join([feats[ind] for ind in combids])
-            adj = get_coincidence_graph(data[:, combids], alpha, True)
+            adj = get_coincidx_graph(data[:, combids], alpha, True)
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
             plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
             adjs.append(adj)
             labels.append(suff)
     return adjs, labels
+
+##########################################################
+def get_coincidx_of_coincidx(coirows, alpha, labels, edgethresh2, outdir):
+    coirowsflat = np.array([matrx.flatten() for matrx in coirows]) # Flatten matrices
+    adj = get_coincidx_graph(coirowsflat, alpha, False)
+
+    vweights = np.sum(adj, axis=0)
+    inds = np.argsort(np.sum(adj, axis=0))
+    desc = list(reversed(inds))
+    info('"Strongest" nodes: {}'.format(np.array(labels)[desc]))
+
+    np.savetxt(pjoin(outdir, 'meta.txt'), adj)
+    # adj = get_pearson_graph(datameta, alpha, False)
+    plot_weighted_graph(adj, labels, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
+
+    vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
+    plot_weighted_graph(adj, vweights, edgethresh2, 'fr', pjoin(outdir, 'weights.pdf'))
+
 ##########################################################
 def main(csvpath, idcol, featcols, outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
 
-    seed = 6
+    seed = 0
     random.seed(seed); np.random.seed(seed)
 
     edgethresh1 = .2
@@ -325,31 +340,15 @@ def main(csvpath, idcol, featcols, outdir):
               'eangstd', 'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
     feats05, feats12 = df[cols05].to_numpy(), df[cols12].to_numpy()
 
-    coirows12, _ = get_coincidence_of_rows12(feats12, rowids, alpha, edgethresh1, outdir)
-
-    coirows05, labels05 = get_coincidence_of_rows05(feats05, rowids, alpha,
-                                                    edgethresh1, outdir)
-    coirowsflat = np.array([matrx.flatten() for matrx in coirows05]) # Flatten matrices
-
-    adj = get_coincidence_graph(coirowsflat, alpha, False)
-
-    vweights = np.sum(adj, axis=0)
-    inds = np.argsort(np.sum(adj, axis=0))
-    desc = list(reversed(inds))
-    info('"Strongest" nodes: {}'.format(np.array(labels05)[desc]))
-
-    np.savetxt(pjoin(outdir, 'adj.txt'), adj)
-    # adj = get_pearson_graph(datameta, alpha, False)
-    plot_weighted_graph(adj, labels05, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
-
-    # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
-    # plot_weighted_graph(adj, vweights, edgethresh2, pjoin(outdir, 'weights.pdf'))
-
-    plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
-
-    plot_pca(df, outdir)
-    plot_histograms(outdir)
     plot_correlogram(df, outdir)
+    plot_pca(df, outdir)
+
+    coirows12, _ = get_coincidx_of_rows12(feats12, rowids, alpha, edgethresh1, outdir)
+    coirows05, labels05 = get_coincidx_of_rows05(feats05, rowids, alpha,
+                                                    edgethresh1, outdir)
+    plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
+    get_coincidx_of_coincidx(coirows05, alpha, labels05, edgethresh2, outdir)
+    plot_histograms(outdir)
 
 ##########################################################
 if __name__ == "__main__":
