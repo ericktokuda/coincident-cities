@@ -371,8 +371,9 @@ def main(csvpath, outdir):
     os.makedirs(featsoutdir, exist_ok = True)
     os.makedirs(coincidxoutdir, exist_ok = True)
 
-    edgethresh1 = .2
-    edgethresh2 = .8
+    ethreshfeats   = .2
+    ethreshcoinc   = .8
+    ethreshpearson = .8
     alpha = .6
 
     dforig = pd.read_csv(csvpath)
@@ -385,10 +386,12 @@ def main(csvpath, outdir):
     plot_feats_correlogram(dffeats, featsoutdir)
     plot_feats_pca(dffeats, featsoutdir)
 
-    dfcoincidx = get_coincidx_of_feats(dffeats, alpha, edgethresh1, featsoutdir)
+    dfcoincidx = get_coincidx_of_feats(dffeats, alpha, ethreshfeats, featsoutdir)
     # plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
-    get_pearson_of_coincidx(dfcoincidx, coincidxoutdir)
-    get_coincidx_of_coincidx(dfcoincidx, alpha, edgethresh2, coincidxoutdir)
+    get_coincidx_of_coincidx(dfcoincidx, alpha, ethreshcoinc, coincidxoutdir)
+
+    dfpearson = get_pearson_of_feats(dffeats, coincidxoutdir)
+    get_pearson_of_pearson(dfpearson, ethreshpearson, coincidxoutdir)
     # plot_histograms(outdir)
 
 ##########################################################
