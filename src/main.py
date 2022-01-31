@@ -16,77 +16,60 @@ import matplotlib.pyplot as plt
 from myutils import info, create_readme
 from myutils.transform import pca, get_pc_contribution
 import pandas as pd
+import scipy
 from sklearn.preprocessing import StandardScaler
 from itertools import combinations
 import igraph
+import seaborn as sns
 
 ##########################################################
-def plot_pca(df, outdir):
-    """Short description """
+def plot_feats_pca(df, outdir):
+    """Principal component analysis of the features"""
     info(inspect.stack()[0][3] + '()')
-    cols = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd', 'eangstd',
-    'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
-
-    df2 = df[cols].copy(deep=True)
-    data = df2.to_numpy()
-    tr, evecs, evals = pca(data, normalize=True)
+    outpath = pjoin(outdir, 'pca.pdf')
+    if os.path.exists(outpath): return
+    featlabels = df.columns.tolist()
+    n, m = df.shape
+    tr, evecs, evals = pca(df.to_numpy(), normalize=True)
     pcs, contribs, relcontribs = get_pc_contribution(evecs, evals)
-    info('Contribs:', np.array(cols)[pcs], contribs, relcontribs)
+    info('Contribs:', np.array(featlabels)[pcs], contribs, relcontribs)
 
     W = 640; H = 480
     fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
-    # ax.set_title('PCA components (pc1 and pc2)')
-
-    cities = [ c.capitalize() for c in list(df.city)]
 
     ax.scatter(tr[:, 0], tr[:, 1], s=380, c='#809fff', edgecolors='#dddddd')
     # for i in range(tr.shape[0]):
         # ax.scatter(tr[i, 0], tr[i, 1], label=cities[i])
 
-    for pos in ['right', 'top']:
-    # for pos in ['right', 'top', 'bottom', 'left']:
-        ax.spines[pos].set_visible(False)
+    for pos in ['right', 'top']: ax.spines[pos].set_visible(False)
 
-    citylabels = [chr(i) for i in range(97, 97 + 21)]
-    for i in range(len(df2)):
-        # ax.annotate(df.iloc[i].city.capitalize(), (tr[i, 0], tr[i, 1]))
-        ax.annotate(citylabels[i], (tr[i, 0], tr[i, 1]), ha='center', va='center')
-        # ax.annotate(citylabels[i], (tr[i, 0]-.005, tr[i, 1]))
+    rowlabels = []
+    for i in range(n):
+        rowlabels.append('{} ({})'.format(df.index[i].capitalize(), chr(i + 97)))
+
+    for i in range(n):
+        ax.annotate(rowlabels[i], (tr[i, 0], tr[i, 1]), ha='center', va='center')
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
     # ax.set_xlabel('PCA1 ({} ({}%)'.format(cols[pcs[0]], int(contribs[0] * 100)))
     # ax.set_ylabel('PCA2 {}: ({}%)'.format(cols[pcs[1]], int(contribs[1] * 100)))
     ax.set_xlabel('PC 1')
     ax.set_ylabel('PC 2')
-    # ax.set_xlim(-.2, +.65)
-    # ax.set_ylim(-xylim, +xylim)
-    # plt.legend(bbox_to_anchor=(1.05, 1))
     plt.tight_layout()
-    # plt.legend()
-
-    outpath = pjoin(outdir, 'pca.pdf')
     plt.savefig(outpath)
 
-
 ##########################################################
-def plot_correlogram(df, outdir):
-    """Plot heatmap"""
+def plot_feats_correlogram(df, outdir):
+    """Plot pairwise correlation of the features"""
     info(inspect.stack()[0][3] + '()')
-    cols = ['degstd', 'transstd', 'vposstd2', 'lacun21', 'acc05std']
-
-    df2 = df[cols].copy(deep=True)
-    data = df2.to_numpy()
-
-    W = 640; H = 480
-    fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
-
-    corrs = df2.corr()
-
-    import seaborn as sns
-    sns.pairplot(corrs, corner=True)
-    plt.tight_layout()
-
     outpath = pjoin(outdir, 'pairwise_correl.pdf')
+    if os.path.exists(outpath): return
+
+    f = 1.5
+    figsize = np.array([1, .75]) * f # W, H
+    corrs = df.corr()
+    sns.pairplot(corrs, corner=True, height=figsize[1], aspect=figsize[0]/figsize[1])
+    plt.tight_layout()
     plt.savefig(outpath)
 
 ##########################################################
@@ -154,9 +137,8 @@ def coincidence(data, a):
     return inter * jac
 
 ##########################################################
-def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
+def plot_weighted_graph(adjorig, labels, ethresh, layout, vcolour, outpath):
     adj = np.tril(adjorig.copy()) # Lower triangle, to avoid double edges
-    # print(np.min(adj))
     adj[adj < ethresh] = 0
     g = igraph.Graph(n=len(adjorig), directed=False)
     xx, yy = np.where(adj != 0)
@@ -166,7 +148,6 @@ def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
         ewidths.append(adj[x, y])
     ewidths = np.array(ewidths)
     wmax = 3 # max edge widths
-    # print(ewidths.shape)
     erange = np.max(ewidths) - np.min(ewidths)
 
     if erange == 0: # All edges have the same weight
@@ -174,11 +155,18 @@ def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
     else:
         ewidths = ( (ewidths - np.min(ewidths)) / erange ) * wmax
 
+    outpath = outpath.replace('.pdf', '.png')
+    # plt.style.use('ggplot')
+    fig, ax = plt.subplots(figsize=(16, 16))
+    igraph.plot(g, target=ax, edge_width=.5)
+    plt.savefig(outpath)
+    # igraph.plot(g, outpath, bbox=(1200, 1200))
+    return
     igraph.plot(g, outpath, vertex_frame_width=1,
                 vertex_frame_color='#dddddd', vertex_label=labels,
                 # vertex_label_size=16, vertex_size=50, edge_color='#aaaaaa',
                 vertex_label_size=12, vertex_size=30, edge_color='#aaaaaa',
-                edge_width=list(ewidths), vertex_color='#809fff', margin=50,
+                edge_width=list(ewidths), vertex_color=vcolour, margin=50,
                 # edge_width=list(ewidths), vertex_color='#e27564', margin=50,
                 layout=layout,
                 )
@@ -186,17 +174,16 @@ def plot_weighted_graph(adjorig, labels, ethresh, layout, outpath):
 ##########################################################
 def get_coincidx_graph(dataorig, alpha, standardize):
     """Get graph of individual elements"""
+    # info(inspect.stack()[0][3] + '()')
 
     n, m = dataorig.shape
     if standardize:
         data = StandardScaler().fit_transform(dataorig)
     else:
         data = dataorig
-    combs = list(combinations(range(n), 2))
 
     adj = np.zeros((n, n), dtype=float)
-
-    for comb in combs:
+    for comb in list(combinations(range(n), 2)):
         data2 = data[list(comb)]
         c = coincidence(data2, alpha)
         adj[comb[0], comb[1]] = adj[comb[1], comb[0]] = c
@@ -204,22 +191,19 @@ def get_coincidx_graph(dataorig, alpha, standardize):
     return adj
 
 ##########################################################
-def get_pearson_graph(dataorig, alpha, standardize):
+def get_pearson_graph(dataorig, standardize):
     """Get graph of individual elements"""
+    info(inspect.stack()[0][3] + '()')
 
     n, m = dataorig.shape
     if standardize:
         data = StandardScaler().fit_transform(dataorig)
     else:
         data = dataorig
-    combs = list(combinations(range(n), 2))
 
     adj = np.zeros((n, n), dtype=float)
-
-    import scipy
-    for comb in combs:
+    for comb in list(combinations(range(n), 2)):
         data2 = data[list(comb)]
-        # c = coincidence(data2, alpha)
         c, _ = scipy.stats.pearsonr(data2[0, :], data2[1, :])
         adj[comb[0], comb[1]] = adj[comb[1], comb[0]] = c
 
@@ -227,15 +211,15 @@ def get_pearson_graph(dataorig, alpha, standardize):
 
 ##########################################################
 def plot_heatmaps(adjdir, outdir):
+    info(inspect.stack()[0][3] + '()')
 
     os.makedirs(outdir, exist_ok=True)
     labels = [chr(i) for i in range(97, 97 + 21)]
     for f in sorted(os.listdir(adjdir)):
         if not f.endswith('.txt'): continue
         if 'README' in  f: continue
-        info(f)
+        # info(f)
         adj = np.loadtxt(pjoin(adjdir, f))
-        import seaborn as sns
         fig, ax = plt.subplots()
         mask = np.triu(np.ones_like(adj, dtype=bool))
         sns.heatmap(adj, mask=mask, ax=ax, vmin=-1, vmax=+1, xticklabels=labels,
@@ -247,6 +231,7 @@ def plot_heatmaps(adjdir, outdir):
 ##########################################################
 def get_coincidx_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
     """Calculate coincidence index of the rows"""
+    info(inspect.stack()[0][3] + '()')
     n, m = data.shape
 
     outdir = pjoin(outrootdir, 'rows05')
@@ -269,18 +254,54 @@ def get_coincidx_of_rows05(data, rowids, alpha, edgethresh1, outrootdir):
             adj = get_coincidx_graph(data[:, combids], alpha, True)
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
-            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
+            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', '#809fff', plotpath)
             adjs.append(adj)
             labels.append(suff)
 
     return adjs, labels
 
 ##########################################################
-def get_coincidx_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
+def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
     """Calculate coincidence index of the rows"""
+    info(inspect.stack()[0][3] + '()')
+    data = df.to_numpy()
     n, m = data.shape
 
-    outdir = pjoin(outrootdir, 'rows12')
+    outdir = pjoin(outrootdir, 'combs')
+    os.makedirs(outdir, exist_ok=True)
+    adjs = []
+    labels = [] # Label of each row of datameta
+
+    rowlabels = [chr(i) for i in range(97, 97+n)]
+
+    for mm in range(1, m +1): # Size of the subset varies from 1 to m
+        combs = list(combinations(range(m), mm))
+        info('Combinations of size ', mm)
+        for comb in combs:
+            combids = list(comb)
+            suff = '_'.join([str(ind+1) for ind in combids])
+            # suff = '_'.join([feats[ind] for ind in combids])
+            adj = get_coincidx_graph(data[:, combids], alpha, True)
+            np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
+            # plotpath = pjoin(outdir, suff + '.pdf')
+            # plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', '#809fff', plotpath)
+            adjs.append(adj)
+            labels.append(suff)
+
+    msk = np.tril(np.ones((n, n))).astype(bool) # Just lower triangle
+    coirowsflat = np.array([matrx[msk] for matrx in adjs]) # Flatten matrices
+    dfcombs = pd.DataFrame(coirowsflat, index=labels)
+    return pd.DataFrame(coirowsflat, index=labels)
+
+##########################################################
+def get_coincidx_of_rows11(df, alpha, edgethresh1, outrootdir):
+    """Calculate coincidence index of the rows"""
+    info(inspect.stack()[0][3] + '()')
+    data = df.to_numpy()
+
+    n, m = data.shape
+
+    outdir = pjoin(outrootdir, 'rows11')
     os.makedirs(outdir, exist_ok=True)
     adjs = []
     labels = [] # Label of each row of datameta
@@ -289,7 +310,8 @@ def get_coincidx_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
 
     m = 1
     for mm in range(1, m +1): # Size of the subset varies from 1 to m
-        combs = [list(range(12))]
+        # combs = [list(range(11))]
+        combs = [list(range(9))]
         # combs = list(combinations(range(m), mm))
         for comb in combs:
             combids = list(comb)
@@ -299,56 +321,75 @@ def get_coincidx_of_rows12(data, rowids, alpha, edgethresh1, outrootdir):
             adj = get_coincidx_graph(data[:, combids], alpha, True)
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.pdf')
-            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', plotpath)
+            plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', '#809fff', plotpath)
             adjs.append(adj)
             labels.append(suff)
     return adjs, labels
 
 ##########################################################
-def get_coincidx_of_coincidx(coirows, alpha, labels, edgethresh2, outdir):
-    coirowsflat = np.array([matrx.flatten() for matrx in coirows]) # Flatten matrices
-    adj = get_coincidx_graph(coirowsflat, alpha, False)
+def get_pearson_of_coincidx(dfcoincidx, outrootdir):
+    outdir = pjoin(outrootdir, 'pearson')
+    outpath = pjoin(outdir, 'pearson.pdf')
+    if os.path.exists(outpath): return
+    os.makedirs(outdir, exist_ok=True)
+
+    rowlabels = dfcoincidx.index.tolist()
+    adj = get_pearson_graph(dfcoincidx.to_numpy(), False)
+    plot_weighted_graph(adj, rowlabels, 0.5, 'fr', '#75bb79', outpath)
+
+##########################################################
+def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
+    info(inspect.stack()[0][3] + '()')
+    adj = get_coincidx_graph(df.to_numpy(), alpha, False)
+    rowlabels = df.index.to_list()
 
     vweights = np.sum(adj, axis=0)
     inds = np.argsort(np.sum(adj, axis=0))
     desc = list(reversed(inds))
-    info('"Strongest" nodes: {}'.format(np.array(labels)[desc]))
+    # info('"Strongest" nodes: {}'.format(np.array(rowlabels)[desc]))
+    # np.array(rowlabels)[desc]
+    breakpoint()
+    
 
     np.savetxt(pjoin(outdir, 'meta.txt'), adj)
     # adj = get_pearson_graph(datameta, alpha, False)
-    plot_weighted_graph(adj, labels, edgethresh2, 'fr', pjoin(outdir, 'meta.pdf'))
+    layout = plot_weighted_graph(adj, rowlabels, edgethresh2, 'fr', '#75bb79', pjoin(outdir, 'meta.pdf'))
 
-    vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
-    plot_weighted_graph(adj, vweights, edgethresh2, 'fr', pjoin(outdir, 'weights.pdf'))
+    # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
+    # plot_weighted_graph(adj, vweights, edgethresh2, layout, '#66BB6A', pjoin(outdir, 'weights.pdf'))
 
 ##########################################################
-def main(csvpath, idcol, featcols, outdir):
+def main(csvpath, outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
 
-    seed = 0
+    seed = 2
     random.seed(seed); np.random.seed(seed)
 
+    featsoutdir = pjoin(outdir, 'feats')
+    coincidxoutdir = pjoin(outdir, 'coincidx')
+    os.makedirs(featsoutdir, exist_ok = True)
+    os.makedirs(coincidxoutdir, exist_ok = True)
+
     edgethresh1 = .2
-    edgethresh2 = .5
+    edgethresh2 = .8
     alpha = .6
 
-    df = pd.read_csv(csvpath)
-    rowids = df[idcol].tolist()
-    cols05 = ['degstd', 'transstd', 'vposstd2', 'lacun21', 'acc05std']
-    cols12 = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd',
-              'eangstd', 'vposstd2', 'lacun21', 'acc05mean', 'acc05std']
-    feats05, feats12 = df[cols05].to_numpy(), df[cols12].to_numpy()
+    dforig = pd.read_csv(csvpath)
+    rowids = dforig['city'].tolist()
+    cols05 = ['degstd', 'transstd', 'vposstd2', 'degmean', 'acc05std']
+    cols11 = [ 'degmean', 'degstd', 'deg3', 'transmean', 'transstd',
+              'eangstd', 'vposstd2', 'acc05mean', 'acc05std']
+    dffeats = dforig.set_index('city')[cols11]
 
-    plot_correlogram(df, outdir)
-    plot_pca(df, outdir)
+    plot_feats_correlogram(dffeats, featsoutdir)
+    plot_feats_pca(dffeats, featsoutdir)
 
-    coirows12, _ = get_coincidx_of_rows12(feats12, rowids, alpha, edgethresh1, outdir)
-    coirows05, labels05 = get_coincidx_of_rows05(feats05, rowids, alpha,
-                                                    edgethresh1, outdir)
-    plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
-    get_coincidx_of_coincidx(coirows05, alpha, labels05, edgethresh2, outdir)
-    plot_histograms(outdir)
+    dfcoincidx = get_coincidx_of_feats(dffeats, alpha, edgethresh1, featsoutdir)
+    # plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
+    get_pearson_of_coincidx(dfcoincidx, coincidxoutdir)
+    get_coincidx_of_coincidx(dfcoincidx, alpha, edgethresh2, coincidxoutdir)
+    # plot_histograms(outdir)
 
 ##########################################################
 if __name__ == "__main__":
@@ -356,15 +397,13 @@ if __name__ == "__main__":
     t0 = time.time()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--csvpath', default='data/data.csv', help='Input data')
-    parser.add_argument('--idcol', default=None, help='Name of the label columns')
-    parser.add_argument('--featcols', default=None, help='Subset of feats to consider, separated by comma')
     parser.add_argument('--outdir', default='/tmp/out/', help='Output directory')
     args = parser.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
     readmepath = create_readme(sys.argv, args.outdir)
 
-    main(args.csvpath, args.idcol, args.featcols, args.outdir)
+    main(args.csvpath, args.outdir)
 
     info('Elapsed time:{:.02f}s'.format(time.time()-t0))
     info('Output generated in {}'.format(args.outdir))
