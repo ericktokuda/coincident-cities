@@ -57,8 +57,6 @@ def plot_feats_pca(df, outdir):
         ax.annotate(rowlabels[i], (tr[i, 0], tr[i, 1]), ha='center', va='center')
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
-    # ax.set_xlabel('PCA1 ({} ({}%)'.format(cols[pcs[0]], int(contribs[0] * 100)))
-    # ax.set_ylabel('PCA2 {}: ({}%)'.format(cols[pcs[1]], int(contribs[1] * 100)))
     ax.set_xlabel('PC 1')
     ax.set_ylabel('PC 2')
     plt.tight_layout()
@@ -70,7 +68,7 @@ def plot_feats_correlogram(df, outdir):
     info(inspect.stack()[0][3] + '()')
     plt.style.use('seaborn')
     outpath = pjoin(outdir, 'pairwise_correl.png')
-    if os.path.exists(outpath): return
+    # if os.path.exists(outpath): return
 
     f = 1.5
     figsize = np.array([1, .75]) * f # W, H
@@ -166,23 +164,7 @@ def plot_weighted_graph(adj, labels, ethresh, plotargs, outpath):
     else:
         ewidths = ( (ewidths - np.min(ewidths)) / erange ) * wmax
 
-    # plt.style.use('ggplot')
-    # fig, ax = plt.subplots(figsize=(16, 16))
-    # fig, ax = plt.subplots(figsize=(4, 4))
-    # igraph.plot(g, target=ax, edge_width=.5, layout=layout)
     igraph.plot(g, outpath, edge_width=ewidths, **plotargs)
-
-    # plt.savefig(outpath); plt.close()
-    # igraph.plot(g, outpath, bbox=(1200, 1200))
-    return
-    igraph.plot(g, outpath, vertex_frame_width=1,
-                vertex_frame_color='#dddddd', vertex_label=labels,
-                # vertex_label_size=16, vertex_size=50, edge_color='#aaaaaa',
-                vertex_label_size=12, vertex_size=30, edge_color='#aaaaaa',
-                edge_width=list(ewidths), vertex_color='#75bb79', margin=50,
-                # edge_width=list(ewidths), vertex_color='#e27564', margin=50,
-                layout=layout,
-                )
 
 ##########################################################
 def get_coincidx_graph(dataorig, alpha, standardize):
@@ -250,8 +232,8 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
 
     outdir = pjoin(outrootdir, 'combs')
     coirowsflatcsv = pjoin(outrootdir, 'coirowsflat.csv')
-    if os.path.exists(coirowsflatcsv):
-        return pd.read_csv(coirowsflatcsv, index_col=0)
+    # if os.path.exists(coirowsflatcsv):
+        # return pd.read_csv(coirowsflatcsv, index_col=0)
 
     os.makedirs(outdir, exist_ok=True)
     adjs = []
@@ -260,17 +242,12 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
     # rowlabels = [chr(i) for i in range(97, 97+n)]
     rowlabels = df.index.tolist()
 
-    layout = dict(vertex_frame_width=1,
-                    vertex_frame_color=VFCLR,
-                    vertex_label=rowlabels,
-                    # vertex_label_size=16, vertex_size=50, edge_color='#aaaaaa',
-                    vertex_label_size=12, vertex_size=50, edge_color=ECLR1,
-                    vertex_color=VCLR1, margin=50,
-                    # edge_width=list(ewidths), vertex_color='#e27564', margin=50,
-                  #75bb79
-                    # layout='circle',
-                    layout='fr',
-                    )
+    layout = dict(bbox=(600, 600), layout='fr', margin=50,
+                  vertex_size=20, vertex_color=VCLR1,
+                  vertex_frame_width=1, vertex_frame_color=VFCLR,
+                  vertex_label=rowlabels, vertex_label_size=12,
+                  edge_color=ECLR1,
+                  )
 
     for mm in range(1, m +1): # Size of the subset varies from 1 to m
         combs = list(combinations(range(m), mm))
@@ -291,39 +268,6 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
     dfcombs.to_csv(coirowsflatcsv)
     return dfcombs
 
-# ##########################################################
-# def get_coincidx_of_rows11(df, alpha, edgethresh1, outrootdir):
-#     """Calculate coincidence index of the rows"""
-#     info(inspect.stack()[0][3] + '()')
-#     data = df.to_numpy()
-# 
-#     n, m = data.shape
-# 
-#     outdir = pjoin(outrootdir, 'rows11')
-#     os.makedirs(outdir, exist_ok=True)
-#     adjs = []
-#     labels = [] # Label of each row of datameta
-# 
-#     rowlabels = [chr(i) for i in range(97, 97+n)]
-# 
-#     m = 1
-#     for mm in range(1, m +1): # Size of the subset varies from 1 to m
-#         # combs = [list(range(11))]
-#         combs = [list(range(9))]
-#         # combs = list(combinations(range(m), mm))
-#         for comb in combs:
-#             combids = list(comb)
-#             suff = '_'.join([str(ind+1) for ind in combids])
-#             info('Combination ', suff)
-#             # suff = '_'.join([feats[ind] for ind in combids])
-#             adj = get_coincidx_graph(data[:, combids], alpha, True)
-#             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
-#             plotpath = pjoin(outdir, suff + '.pdf')
-#             plot_weighted_graph(adj, rowlabels, edgethresh1, 'fr', '#809fff', plotpath)
-#             adjs.append(adj)
-#             labels.append(suff)
-#     return adjs, labels
-
 ##########################################################
 def get_pearson_of_coincidx(dfcoincidx, outrootdir):
     outdir = pjoin(outrootdir, 'pearson')
@@ -340,34 +284,18 @@ def plot_communities(adj, rowlabels, edgethresh, outdir):
     """Short description """
     info(inspect.stack()[0][3] + '()')
     g = get_igraphobj_from_adj(adj, edgethresh)
-    # breakpoint()
     layout = g.layout('fr', weights='weight')
-    # layout = g.layout('kk')
 
     # Plot the labels in vectorial format
-    plotargs = dict(bbox=(1200, 1200),
-                    vertex_frame_width=.7,
-                    vertex_frame_color=VFCLR,
-                    vertex_color=VCLR2,
-                    vertex_size=8, edge_color=ECLR2,
-                    vertex_label=rowlabels,
-                    vertex_label_size=5,
-                    margin=50,
-                    edge_width=0.4,
-                    layout=layout,
-                    )
+    layout = dict(bbox=(1200, 1200), layout='fr', margin=50,
+                  vertex_size=8, vertex_color=VCLR2,
+                  vertex_frame_width=.7, vertex_frame_color=VFCLR,
+                  vertex_label=rowlabels, vertex_label_size=5,
+                  edge_color=ECLR2,
+                  )
     igraph.plot(g, pjoin(outdir, 'labels.pdf'), **plotargs)
 
     # Plot different community detection approaches
-    plotargs = dict(bbox=(1000, 1000),
-                    vertex_frame_width=.7,
-                    vertex_frame_color=VFCLR,
-                    vertex_size=10, edge_color=ECLR2,
-                    margin=50,
-                    edge_width=0.4,
-                    layout=layout,
-                    )
-
     # info('infomap')
     # comms = g.community_infomap(edge_weights='weight')
     # igraph.plot(comms, pjoin(outdir, 'infomap.png'), **plotargs)
@@ -400,26 +328,16 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     adj = get_coincidx_graph(df.to_numpy(), alpha, False)
     rowlabels = df.index.to_list()
 
-    # layout = plot_communities(adj, rowlabels, edgethresh2, outdir)
+    np.savetxt(pjoin(outdir, 'coincofcoinc.txt'), adj)
 
-    # vweights = np.sum(adj, axis=0)
-    # inds = np.argsort(np.sum(adj, axis=0))
-    # desc = list(reversed(inds))
-    # df = pd.DataFrame(np.array([rowlabels, vweights]).T, columns=['comb', 'weight'])
-    # df.to_csv(pjoin(outdir, 'weights.csv'), index=False)
+    outpath = pjoin(outdir, 'coincofcoinc.png')
 
-    np.savetxt(pjoin(outdir, 'meta.txt'), adj)
-
-    # return
-
-    outpath = pjoin(outdir, 'meta.png')
-    plotargs = dict(bbox=(500, 500),
-                    vertex_color=VCLR2, margin=50,
-                    vertex_frame_width=.5,
-                    vertex_frame_color=VFCLR,
-                    vertex_size=10, edge_color=ECLR2,
-                    layout='fr',
-                    )
+    plotargs = dict(bbox=(600, 600), layout='fr', margin=50,
+                  vertex_size=20, vertex_color=VCLR2,
+                  vertex_frame_width=1, vertex_frame_color=VFCLR,
+                  vertex_label=rowlabels, vertex_label_size=12,
+                  edge_color=ECLR1,
+                  )
 
     layout = plot_weighted_graph(adj, rowlabels, edgethresh2, plotargs, outpath)
 
@@ -440,25 +358,24 @@ def main(csvpath, outdir):
     os.makedirs(coincidxoutdir, exist_ok = True)
 
     ethreshfeats   = .2
-    ethreshcoinc   = .55
+    ethreshcoinc   = .5
     ethreshpearson = .8
-    alpha = .6
+    alphafeats = .6
+    alphacoinc = .6
 
     dforig = pd.read_csv(csvpath)
     rowids = dforig['city'].tolist()
-    # cols05 = ['degstd', 'transstd', 'vposstd2', 'degmean', 'acc05std']
-    cols05 = ['degstd', 'transstd', 'vposstd2', 'eangstd', 'acc05std']
-    # cols11 = [ 'degmean', 'degstd', 'deg3', 'deg4', 'deg5', 'transmean', 'transstd',
-              # 'eangstd', 'vposstd2', 'acc05mean', 'acc05std', 'lacun21']
-    # dffeats = dforig.set_index('city')[cols11]
-    dffeats = dforig.set_index('city')[cols05]
+    cols = ['degmean', 'degstd', 'transstd', 'vposstd2', 'acc05std']
+    # cols = [ 'degmean', 'degstd', 'deg3', 'transmean', 'transstd',
+              # 'eangstd', 'vposstd2', 'acc05mean', 'acc05std']
+    dffeats = dforig.set_index('city')[cols]
 
     plot_feats_correlogram(dffeats, featsoutdir)
     plot_feats_pca(dffeats, featsoutdir)
+    dfcoincidx = get_coincidx_of_feats(dffeats, alphafeats, ethreshfeats, featsoutdir)
 
-    dfcoincidx = get_coincidx_of_feats(dffeats, alpha, ethreshfeats, featsoutdir)
     # plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
-    get_coincidx_of_coincidx(dfcoincidx, alpha, ethreshcoinc, coincidxoutdir)
+    get_coincidx_of_coincidx(dfcoincidx, alphacoinc, ethreshcoinc, coincidxoutdir)
 
     # dfpearson = get_pearson_of_feats(dffeats, coincidxoutdir)
     # get_pearson_of_pearson(dfpearson, ethreshpearson, coincidxoutdir)
