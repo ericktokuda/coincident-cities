@@ -280,11 +280,11 @@ def get_pearson_of_coincidx(dfcoincidx, outrootdir):
     plot_weighted_graph(adj, rowlabels, 0.5, 'fr', '#75bb79', outpath)
 
 ##########################################################
-def plot_communities(adj, rowlabels, edgethresh, outdir):
+def plot_communities(adj, rowlabels, edgethresh, plotargs, outdir):
     """Short description """
     info(inspect.stack()[0][3] + '()')
     g = get_igraphobj_from_adj(adj, edgethresh)
-    layout = g.layout('fr', weights='weight')
+    # layout = g.layout('fr', weights='weight')
 
     # Plot the labels in vectorial format
     layout = dict(bbox=(1200, 1200), layout='fr', margin=50,
@@ -328,6 +328,7 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     adj = get_coincidx_graph(df.to_numpy(), alpha, False)
     rowlabels = df.index.to_list()
 
+
     np.savetxt(pjoin(outdir, 'coincofcoinc.txt'), adj)
 
     outpath = pjoin(outdir, 'coincofcoinc.png')
@@ -339,7 +340,14 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
                   edge_color=ECLR1,
                   )
 
-    layout = plot_weighted_graph(adj, rowlabels, edgethresh2, plotargs, outpath)
+    g = get_igraphobj_from_adj(adj, edgethresh2)
+    layout = g.layout('fr', weights='weight')
+    plotargs['layout'] = layout
+
+    plot_weighted_graph(adj, rowlabels, edgethresh2, plotargs, outpath)
+
+    del plotargs['vertex_color']
+    plot_communities(adj, rowlabels, edgethresh2, plotargs, outdir)
 
     # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
     # plot_weighted_graph(adj, vweights, edgethresh2, layout, '#66BB6A', pjoin(outdir, 'weights.pdf'))
@@ -357,15 +365,16 @@ def main(csvpath, outdir):
     os.makedirs(featsoutdir, exist_ok = True)
     os.makedirs(coincidxoutdir, exist_ok = True)
 
-    ethreshfeats   = .2
+    ethreshfeats   = .1
     ethreshcoinc   = .5
     ethreshpearson = .8
-    alphafeats = .6
+    alphafeats = .35
     alphacoinc = .6
 
     dforig = pd.read_csv(csvpath)
     rowids = dforig['city'].tolist()
     cols = ['degmean', 'degstd', 'transstd', 'vposstd2', 'acc05std']
+    # cols = ['lacun21', 'degstd', 'transstd', 'vposstd2', 'acc05std']
     # cols = [ 'degmean', 'degstd', 'deg3', 'transmean', 'transstd',
               # 'eangstd', 'vposstd2', 'acc05mean', 'acc05std']
     dffeats = dforig.set_index('city')[cols]
@@ -375,7 +384,7 @@ def main(csvpath, outdir):
     dfcoincidx = get_coincidx_of_feats(dffeats, alphafeats, ethreshfeats, featsoutdir)
 
     # plot_heatmaps(outdir, pjoin(outdir, 'heatmaps/'))
-    get_coincidx_of_coincidx(dfcoincidx, alphacoinc, ethreshcoinc, coincidxoutdir)
+    adj = get_coincidx_of_coincidx(dfcoincidx, alphacoinc, ethreshcoinc, coincidxoutdir)
 
     # dfpearson = get_pearson_of_feats(dffeats, coincidxoutdir)
     # get_pearson_of_pearson(dfpearson, ethreshpearson, coincidxoutdir)
