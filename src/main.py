@@ -44,17 +44,16 @@ def plot_feats_pca(df, outdir):
     fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
 
     ax.scatter(tr[:, 0], tr[:, 1], s=380, c=VCLR1, edgecolors=ECLR1)
-    # for i in range(tr.shape[0]):
-        # ax.scatter(tr[i, 0], tr[i, 1], label=cities[i])
 
     for pos in ['right', 'top']: ax.spines[pos].set_visible(False)
 
     rowlabels = []
     for i in range(n):
-        rowlabels.append('{} ({})'.format(df.index[i].capitalize(), chr(i + 97)))
+        rowlabels.append('{}'.format(df.index[i].capitalize()))
 
     for i in range(n):
-        ax.annotate(rowlabels[i], (tr[i, 0], tr[i, 1]), ha='center', va='center')
+        ax.annotate(rowlabels[i], (tr[i, 0], tr[i, 1]),
+                    ha='center', va='center', fontsize='small')
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
     ax.set_xlabel('PC 1')
@@ -259,6 +258,15 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
             plotpath = pjoin(outdir, suff + '.png')
             plot_weighted_graph(adj, rowlabels, edgethresh1, layout, plotpath)
+
+            g = get_igraphobj_from_adj(adj, edgethresh1)
+            membership, _ = np.mgrid[:4, :5] # TODO: should adjust automatically
+            modul = g.modularity(membership.flatten(), weights='weight')
+            if mm == m:
+                open(pjoin(outrootdir, 'modularity.txt'), 'a'). \
+                    write('{},{}\n'.format(alpha, modul))
+                # We can then cat them all (in bash)
+
             adjs.append(adj)
             labels.append(suff)
 
@@ -353,7 +361,7 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     # plot_weighted_graph(adj, vweights, edgethresh2, layout, '#66BB6A', pjoin(outdir, 'weights.pdf'))
 
 ##########################################################
-def main(csvpath, outdir):
+def main(csvpath, alphafeats, outdir):
     """Short description"""
     info(inspect.stack()[0][3] + '()')
 
@@ -368,7 +376,7 @@ def main(csvpath, outdir):
     ethreshfeats   = .1
     ethreshcoinc   = .5
     ethreshpearson = .8
-    alphafeats = .35
+    # alphafeats = .35
     alphacoinc = .6
 
     dforig = pd.read_csv(csvpath)
@@ -380,6 +388,7 @@ def main(csvpath, outdir):
     dffeats = dforig.set_index('city')[cols]
 
     plot_feats_correlogram(dffeats, featsoutdir)
+
     plot_feats_pca(dffeats, featsoutdir)
     dfcoincidx = get_coincidx_of_feats(dffeats, alphafeats, ethreshfeats, featsoutdir)
 
@@ -395,6 +404,8 @@ if __name__ == "__main__":
     info(datetime.date.today())
     t0 = time.time()
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--alphaf', type=float, default=.3,
+                        help='Alpha of the coincidence index')
     parser.add_argument('--csvpath', default='data/data.csv', help='Input data')
     parser.add_argument('--outdir', default='/tmp/out/', help='Output directory')
     args = parser.parse_args()
@@ -402,7 +413,7 @@ if __name__ == "__main__":
     os.makedirs(args.outdir, exist_ok=True)
     readmepath = create_readme(sys.argv, args.outdir)
 
-    main(args.csvpath, args.outdir)
+    main(args.csvpath, args.alphaf, args.outdir)
 
     info('Elapsed time:{:.02f}s'.format(time.time()-t0))
     info('Output generated in {}'.format(args.outdir))
