@@ -27,12 +27,13 @@ VCLR2 = '#75bb79'
 VFCLR = '#dddddd'
 ECLR1  = '#aaaaaaff'
 ECLR2  = '#55555599'
+EXT = '.pdf'
 
 ##########################################################
 def plot_feats_pca(df, outdir):
     """Principal component analysis of the features"""
     info(inspect.stack()[0][3] + '()')
-    outpath = pjoin(outdir, 'pca.png')
+    outpath = pjoin(outdir, 'pca' + EXT)
     if os.path.exists(outpath): return
     featlabels = df.columns.tolist()
     n, m = df.shape
@@ -56,8 +57,8 @@ def plot_feats_pca(df, outdir):
                     ha='center', va='center', fontsize='small')
 
     xylim = np.max(np.abs(tr[:, 0:2])) * 1.1
-    ax.set_xlabel('PC 1')
-    ax.set_ylabel('PC 2')
+    ax.set_xlabel('PC 1 ({}%)'.format(int(contribs[0]*100)))
+    ax.set_ylabel('PC 2 ({}%)'.format(int(contribs[1]*100)))
     plt.tight_layout()
     plt.savefig(outpath)
 
@@ -66,7 +67,7 @@ def plot_feats_correlogram(df, outdir):
     """Plot pairwise correlation of the features"""
     info(inspect.stack()[0][3] + '()')
     plt.style.use('seaborn')
-    outpath = pjoin(outdir, 'pairwise_correl.png')
+    outpath = pjoin(outdir, 'pairwise_correl' + EXT)
     # if os.path.exists(outpath): return
 
     f = 1.5
@@ -89,25 +90,19 @@ def plot_histograms(outdir):
         [[5], [4, 5], [2, 4, 5], [1,4,5], [1,2,5], [2,5], [1,2,4,5], [1,5]],
         [[1,2,4], [1,4], [1,2], [2,4], [4]]
     ]
+    clusters = [[4,4,4,0,8],[2,2,3,0,0], [4,4,4,7,0], [4,4,4,8,8]]
 
     for clid, cluster in enumerate(clusters):
-        counter = np.zeros(n, dtype=float)
-        clsizes = []
-        for i, nodes in enumerate(cluster):
-            clsizes.append(len(nodes))
-            for node in nodes:
-                counter[node - 1] += 1
-
         W = 320; H = 240
 
         fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
         # ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
-        ax.bar(range(1, n+1), np.array(counter), color='#66BB6A')
+        ax.bar(range(1, n+1), np.array(cluster), color='#66BB6A')
         ax.set_xlabel('Feature id')
         ax.set_ylim(0, 9)
         plt.tight_layout()
 
-        outpath = pjoin(outdir, 'meta_hist{}.png'.format(clid))
+        outpath = pjoin(outdir, 'coinc_hist{}{}'.format(clid, EXT))
         plt.savefig(outpath)
 
 ##########################################################
@@ -155,7 +150,7 @@ def get_igraphobj_from_adj(adjorig, ethresh=0):
 def plot_weighted_graph(adj, labels, ethresh, plotargs, outpath):
     g = get_igraphobj_from_adj(adj, ethresh)
     ewidths = np.array(g.es['weight'])
-    wmax = 3 # max edge widths
+    wmax = 4 # max edge widths
     erange = np.max(ewidths) - np.min(ewidths)
 
     if erange == 0: # All edges have the same weight
@@ -219,7 +214,7 @@ def plot_heatmaps(adjdir, outdir):
         sns.heatmap(adj, mask=mask, ax=ax, vmin=-1, vmax=+1, xticklabels=labels,
                     yticklabels=labels)
         plt.tight_layout()
-        plt.savefig(pjoin(outdir, f.replace('.txt', '.png')))
+        plt.savefig(pjoin(outdir, f.replace('.txt', EXT)))
         plt.close()
 
 ##########################################################
@@ -241,7 +236,7 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
     # rowlabels = [chr(i) for i in range(97, 97+n)]
     rowlabels = df.index.tolist()
 
-    layout = dict(bbox=(600, 600), layout='fr', margin=50,
+    layout = dict(bbox=(400, 400), layout='fr', margin=50,
                   vertex_size=20, vertex_color=VCLR1,
                   vertex_frame_width=1, vertex_frame_color=VFCLR,
                   vertex_label=rowlabels, vertex_label_size=12,
@@ -256,7 +251,7 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
             suff = '_'.join([str(ind+1) for ind in combids])
             adj = get_coincidx_graph(data[:, combids], alpha, True)
             np.savetxt(pjoin(outdir, '{}.txt'.format(suff)), adj)
-            plotpath = pjoin(outdir, suff + '.png')
+            plotpath = pjoin(outdir, suff + EXT)
             plot_weighted_graph(adj, rowlabels, edgethresh1, layout, plotpath)
 
             g = get_igraphobj_from_adj(adj, edgethresh1)
@@ -279,7 +274,7 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
 ##########################################################
 def get_pearson_of_coincidx(dfcoincidx, outrootdir):
     outdir = pjoin(outrootdir, 'pearson')
-    outpath = pjoin(outdir, 'pearson.png')
+    outpath = pjoin(outdir, 'pearson' + EXT)
     if os.path.exists(outpath): return
     os.makedirs(outdir, exist_ok=True)
 
@@ -301,32 +296,45 @@ def plot_communities(adj, rowlabels, edgethresh, plotargs, outdir):
                   vertex_label=rowlabels, vertex_label_size=5,
                   edge_color=ECLR2,
                   )
-    igraph.plot(g, pjoin(outdir, 'labels.pdf'), **plotargs)
+    igraph.plot(g, pjoin(outdir, 'labels' + EXT), **plotargs)
 
     # Plot different community detection approaches
     # info('infomap')
     # comms = g.community_infomap(edge_weights='weight')
-    # igraph.plot(comms, pjoin(outdir, 'infomap.png'), **plotargs)
+    # igraph.plot(comms, pjoin(outdir, 'infomap' + EXT), **plotargs)
 
     # info('labelprop')
     # comms = g.community_label_propagation(weights='weight')
-    # igraph.plot(comms, pjoin(outdir, 'labelprop.png'), **plotargs)
+    # igraph.plot(comms, pjoin(outdir, 'labelprop' + EXT), **plotargs)
 
 
     # # info('spinglass')
     # # comms = g.community_spinglass(weights='weight')
-    # # igraph.plot(comms, pjoin(outdir, 'spinglass.png'), **plotargs)
+    # # igraph.plot(comms, pjoin(outdir, 'spinglass' + EXT), **plotargs)
 
     # # info('edgebetw')
     # # comms = g.community_edge_betweenness(directed=False, weights='weight')
-    # # igraph.plot(comms, pjoin(outdir, 'edgebetw.png'), **plotargs)
+    # # igraph.plot(comms, pjoin(outdir, 'edgebetw' + EXT), **plotargs)
 
     info('multilevel')
     comms = g.community_multilevel(weights='weight', return_levels=False)
-    igraph.plot(comms, pjoin(outdir, 'multilevel.png'), **plotargs)
+    igraph.plot(comms, pjoin(outdir, 'multilevel' + EXT), **plotargs)
+    commids = list(comms)
+
+    # Distribution of features per community
+    for comm in commids:
+        commlbs = np.array(rowlabels)[comm]
+        m = len(commlbs)
+
+        acc = np.zeros(5, dtype=int)
+        for lbl in commlbs:
+            featids = [int(ii) for ii in lbl.split('_')]
+            for id_ in featids:
+                acc[id_-1] += 1
+        print(m, acc)
 
     g2 = comms.cluster_graph()
-    igraph.plot(g2, pjoin(outdir, 'multilevel_clgraph.png'))
+    igraph.plot(g2, pjoin(outdir, 'multilevel_clgraph' + EXT))
 
     return layout
 
@@ -339,12 +347,12 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
 
     np.savetxt(pjoin(outdir, 'coincofcoinc.txt'), adj)
 
-    outpath = pjoin(outdir, 'coincofcoinc.png')
+    outpath = pjoin(outdir, 'coincofcoinc' + EXT)
 
-    plotargs = dict(bbox=(600, 600), layout='fr', margin=50,
+    plotargs = dict(bbox=(500, 500), layout='fr', margin=50,
                   vertex_size=20, vertex_color=VCLR2,
                   vertex_frame_width=1, vertex_frame_color=VFCLR,
-                  vertex_label=rowlabels, vertex_label_size=12,
+                  vertex_label=rowlabels, vertex_label_size=10,
                   edge_color=ECLR1,
                   )
 
@@ -374,7 +382,7 @@ def main(csvpath, alphafeats, outdir):
     os.makedirs(coincidxoutdir, exist_ok = True)
 
     ethreshfeats   = .1
-    ethreshcoinc   = .5
+    ethreshcoinc   = .55
     ethreshpearson = .8
     # alphafeats = .35
     alphacoinc = .6
@@ -397,7 +405,7 @@ def main(csvpath, alphafeats, outdir):
 
     # dfpearson = get_pearson_of_feats(dffeats, coincidxoutdir)
     # get_pearson_of_pearson(dfpearson, ethreshpearson, coincidxoutdir)
-    # plot_histograms(outdir)
+    plot_histograms(outdir)
 
 ##########################################################
 if __name__ == "__main__":
