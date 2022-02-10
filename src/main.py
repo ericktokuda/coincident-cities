@@ -93,12 +93,13 @@ def plot_histograms(outdir):
     clusters = [[4,4,4,0,8],[2,2,3,0,0], [4,4,4,7,0], [4,4,4,8,8]]
 
     for clid, cluster in enumerate(clusters):
-        W = 320; H = 240
+        W = 200; H = 175
 
         fig, ax = plt.subplots(figsize=(W*.01, H*.01), dpi=100)
         # ax.bar(range(1, n+1), np.array(counter) / np.sum(counter))
         ax.bar(range(1, n+1), np.array(cluster), color='#66BB6A')
         ax.set_xlabel('Feature id')
+        ax.set_xticks(range(1, 6))
         ax.set_ylim(0, 9)
         plt.tight_layout()
 
@@ -156,7 +157,7 @@ def plot_weighted_graph(adj, labels, ethresh, plotargs, outpath):
     if erange == 0: # All edges have the same weight
         ewidths = np.ones(len(ewidths))
     else:
-        ewidths = ( (ewidths - np.min(ewidths)) / erange ) * wmax
+        ewidths = ( (ewidths - np.min(ewidths)) / erange ) * (wmax - 1) + 1
 
     igraph.plot(g, outpath, edge_width=ewidths, **plotargs)
 
@@ -236,11 +237,19 @@ def get_coincidx_of_feats(df, alpha, edgethresh1, outrootdir):
     # rowlabels = [chr(i) for i in range(97, 97+n)]
     rowlabels = df.index.tolist()
 
-    layout = dict(bbox=(400, 400), layout='fr', margin=50,
-                  vertex_size=20, vertex_color=VCLR1,
+    palette = ['#66c2a5','#fc8d62','#8da0cb','#e78ac3','#a6d854']
+    # teal, orange, blue, pink, green
+    membership, _ = np.mgrid[:5, :4] # TODO: should adjust automatically
+    membership = membership.flatten()
+    colours = np.array(palette)[membership]
+
+    layout = dict(bbox=(400, 400), layout='circle', margin=50,
+                  # vertex_size=20, vertex_color=VCLR1,
+                  vertex_size=20, vertex_color=colours,
                   vertex_frame_width=1, vertex_frame_color=VFCLR,
-                  vertex_label=rowlabels, vertex_label_size=12,
-                  edge_color=ECLR1,
+                  # vertex_label=rowlabels, vertex_label_size=12,
+                  vertex_label_size=12,
+                  edge_color=ECLR1
                   )
 
     for mm in range(1, m +1): # Size of the subset varies from 1 to m
@@ -289,15 +298,6 @@ def plot_communities(adj, rowlabels, edgethresh, plotargs, outdir):
     g = get_igraphobj_from_adj(adj, edgethresh)
     # layout = g.layout('fr', weights='weight')
 
-    # Plot the labels in vectorial format
-    layout = dict(bbox=(1200, 1200), layout='fr', margin=50,
-                  vertex_size=8, vertex_color=VCLR2,
-                  vertex_frame_width=.7, vertex_frame_color=VFCLR,
-                  vertex_label=rowlabels, vertex_label_size=5,
-                  edge_color=ECLR2,
-                  )
-    igraph.plot(g, pjoin(outdir, 'labels' + EXT), **plotargs)
-
     # Plot different community detection approaches
     # info('infomap')
     # comms = g.community_infomap(edge_weights='weight')
@@ -318,11 +318,24 @@ def plot_communities(adj, rowlabels, edgethresh, plotargs, outdir):
 
     info('multilevel')
     comms = g.community_multilevel(weights='weight', return_levels=False)
-    igraph.plot(comms, pjoin(outdir, 'multilevel' + EXT), **plotargs)
-    commids = list(comms)
+    info('modularity {}'.format(g.modularity(comms)))
 
+    palette = ['#bdd3cf','#d9d9d9','#fccde5','#ffff9d','#80b1d3',
+               '#fdb462','#b3de69','#bebada','#bda6fb']
+
+    colours = np.empty(g.vcount(), dtype=object)
+    for i, comm in enumerate(list(comms)):
+        colours[comm] = palette[i]
+        info('comm {}: {}'.format(i, np.array(rowlabels)[comm]))
+
+    plotargs['vertex_color'] = colours
+    plot_weighted_graph(adj > edgethresh, rowlabels, edgethresh, plotargs,
+                        pjoin(outdir, 'multilevel' + EXT))
+    del plotargs['vertex_color']
+
+    vweights = np.sum(adj, axis=0)
     # Distribution of features per community
-    for comm in commids:
+    for comm in list(comms):
         commlbs = np.array(rowlabels)[comm]
         m = len(commlbs)
 
@@ -331,19 +344,19 @@ def plot_communities(adj, rowlabels, edgethresh, plotargs, outdir):
             featids = [int(ii) for ii in lbl.split('_')]
             for id_ in featids:
                 acc[id_-1] += 1
-        print(m, acc)
 
-    g2 = comms.cluster_graph()
-    igraph.plot(g2, pjoin(outdir, 'multilevel_clgraph' + EXT))
+        ws = vweights[comm]
+        print(len(comm), ws, commlbs)
 
-    return layout
+
+    # g2 = comms.cluster_graph() # Plot cluster graph
+    # igraph.plot(g2, pjoin(outdir, 'multilevel_clgraph' + EXT))
 
 ##########################################################
 def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     info(inspect.stack()[0][3] + '()')
     adj = get_coincidx_graph(df.to_numpy(), alpha, False)
     rowlabels = df.index.to_list()
-
 
     np.savetxt(pjoin(outdir, 'coincofcoinc.txt'), adj)
 
@@ -352,7 +365,7 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     plotargs = dict(bbox=(500, 500), layout='fr', margin=50,
                   vertex_size=20, vertex_color=VCLR2,
                   vertex_frame_width=1, vertex_frame_color=VFCLR,
-                  vertex_label=rowlabels, vertex_label_size=10,
+                  vertex_label=rowlabels, vertex_label_size=9,
                   edge_color=ECLR1,
                   )
 
@@ -366,6 +379,7 @@ def get_coincidx_of_coincidx(df, alpha, edgethresh2, outdir):
     plot_communities(adj, rowlabels, edgethresh2, plotargs, outdir)
 
     # vweights = ['{:.1f}'.format(w) for w in np.sum(adj, axis=0)]
+    
     # plot_weighted_graph(adj, vweights, edgethresh2, layout, '#66BB6A', pjoin(outdir, 'weights.pdf'))
 
 ##########################################################
@@ -405,7 +419,7 @@ def main(csvpath, alphafeats, outdir):
 
     # dfpearson = get_pearson_of_feats(dffeats, coincidxoutdir)
     # get_pearson_of_pearson(dfpearson, ethreshpearson, coincidxoutdir)
-    plot_histograms(outdir)
+    plot_histograms(coincidxoutdir)
 
 ##########################################################
 if __name__ == "__main__":
